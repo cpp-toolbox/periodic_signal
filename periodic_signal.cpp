@@ -1,0 +1,21 @@
+#include "periodic_signal.hpp"
+
+PeriodicSignal::PeriodicSignal(int rate_limit_hz)
+    : period_duration(std::chrono::milliseconds(1000 / rate_limit_hz)),
+      last_signal_time(std::chrono::steady_clock::now()) {}
+
+bool PeriodicSignal::process_and_get_signal() {
+    auto now = std::chrono::steady_clock::now();
+    auto time_diff = now - last_signal_time;
+
+    if (time_diff >= period_duration) {
+        // Calculate the leftover time after the last full period
+        auto leftover_time = time_diff % period_duration; // The remainder of time that exceeds full periods
+
+        // Adjust last_signal_time to "pay forward" the leftover time into the next computation
+        last_signal_time = now - leftover_time;
+        return true;
+    } else {
+        return false;
+    }
+}
