@@ -17,6 +17,7 @@ class PeriodicSignal {
     explicit PeriodicSignal(int rate_limit_hz, OperationMode mode);
     bool process_and_get_signal();
     double get_last_delta_time() const;
+    bool enough_time_has_passed() const;
 
   private:
     OperationMode mode;
