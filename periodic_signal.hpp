@@ -14,7 +14,7 @@ enum class OperationMode {
 
 class PeriodicSignal {
   public:
-    explicit PeriodicSignal(int rate_limit_hz, OperationMode mode);
+    explicit PeriodicSignal(int rate_limit_hz, OperationMode mode = OperationMode::MEASURED_DELTAS);
     bool process_and_get_signal();
     double get_last_delta_time() const;
     bool enough_time_has_passed() const;
