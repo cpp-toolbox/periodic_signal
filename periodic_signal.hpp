@@ -1,7 +1,9 @@
 #ifndef PERIODIC_SIGNAL_HPP
 #define PERIODIC_SIGNAL_HPP
 
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 
 enum class OperationMode {
     PERFECT_DELTAS,
@@ -57,47 +59,41 @@ class PeriodicSignalNew {
           last_delta_time(0.0) {}
 
     /**
-     * @brief returns true if a signal should have occurred since the last one and updates internal state
+     * @brief Returns true if one or more signals should have occurred since the last call.
+     *        If we have fallen behind, it "catches up" to the latest expected signal.
      */
     bool process_and_get_signal() {
         auto now = std::chrono::steady_clock::now();
-        auto next_expected_signal_time = start_time + (++signal_count) * period_duration;
 
-        if (now >= next_expected_signal_time) {
-            // compute delta based on actual elapsed time
+        // Compute how many full periods have elapsed since start
+        double elapsed_seconds = std::chrono::duration<double>(now - start_time).count();
+        int expected_signal_count = static_cast<int>(elapsed_seconds / period_duration.count());
+
+        // If we've reached or passed at least one new signal since last time
+        if (expected_signal_count > signal_count) {
+            // Move signal count to the latest one
+            signal_count = expected_signal_count;
             last_delta_time = std::chrono::duration<double>(now - last_signal_time).count();
             last_signal_time = now;
             return true;
-        } else {
-            // revert increment if not yet time
-            --signal_count;
-            return false;
         }
+        return false;
     }
 
-    /**
-     * @brief returns the amount of time it took for the last signal to come through
-     */
     double get_last_delta_time() const { return last_delta_time; }
 
-    /**
-     * @brief returns true if a signal should have occurred since the last signal.
-     */
     bool enough_time_has_passed() const {
         auto now = std::chrono::steady_clock::now();
-        auto next_expected_signal_time = start_time + (signal_count + 1) * period_duration;
-        return now >= next_expected_signal_time;
+        double elapsed_seconds = std::chrono::duration<double>(now - start_time).count();
+        int expected_signal_count = static_cast<int>(elapsed_seconds / period_duration.count());
+        return expected_signal_count > signal_count;
     }
 
-    /**
-     * @brief returns progress (0.0–1.0) toward next expected signal
-     */
     double get_cycle_progress() const {
         auto now = std::chrono::steady_clock::now();
-        auto current_cycle_start = start_time + signal_count * period_duration;
-        auto elapsed_in_cycle = std::chrono::duration<double>(now - current_cycle_start).count();
-        double period_seconds = period_duration.count();
-        return std::clamp(elapsed_in_cycle / period_seconds, 0.0, 1.0);
+        double elapsed_seconds = std::chrono::duration<double>(now - start_time).count();
+        double cycle_position = std::fmod(elapsed_seconds, period_duration.count());
+        return std::clamp(cycle_position / period_duration.count(), 0.0, 1.0);
     }
 
   private:
