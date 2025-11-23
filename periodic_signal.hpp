@@ -31,8 +31,9 @@ enum class OperationMode {
  * implementation, in the old implementation everything was based off the last time and it would have  error building up
  * over time, with the new implemenation everything is thought of as a timeline, and the "ticks" are laid out before
  * hand, we just sample the clock and figure out which tick we are in, which has shown to be more accurate.
+ *
+ * @todo the start time is upon creation maybe we can make that a dynamic choice in the futre
  */
-
 class PeriodicSignal {
   public:
     explicit PeriodicSignal(int rate_limit_hz, OperationMode mode = OperationMode::MEASURED_DELTAS)
@@ -66,6 +67,7 @@ class PeriodicSignal {
 
         // Compute how many full periods have elapsed since start
         double elapsed_seconds = std::chrono::duration<double>(now - start_time).count();
+        // this is the floor function here.
         int expected_signal_count = static_cast<int>(elapsed_seconds / period_duration.count());
 
         // If we've reached or passed at least one new signal since last time
@@ -105,10 +107,51 @@ class PeriodicSignal {
 
     /**
      * @brief Returns normalized progress [0,1] through the current cycle.
+     *
+     * @warn you only know that a new cycle has commenced by using @see process_and_get_signal, thus if you're checking
+     * this value without first knowing if a new signal has started then you'll go from a value around 1 to a value
+     * around 0. This most likely will cause unexpected behavior if you're doing any type of interpolation or any logic
+     * with this value because you'll use this value in the context of still not knowing that a new signal has already
+     * happened
+     *
+     *
      */
     double get_cycle_progress() const {
         auto now = std::chrono::steady_clock::now();
         double elapsed_seconds = std::chrono::duration<double>(now - start_time).count();
+        double cycle_position = std::fmod(elapsed_seconds, period_duration.count());
+        return std::clamp(cycle_position / period_duration.count(), 0.0, 1.0);
+    }
+
+    /**
+     * @brief Returns normalized progress [0,1] through the current cycle, clamped if behind schedule.
+     *
+     * @note This function computes the progress through the current cycle similar to @see get_cycle_progress() but
+     * integrates with the internal book keeping about when a signal is emitted. Fully that means that if we have
+     * theoretically entered a new cycle at the time that this is called, but we still have not updated that internal
+     * state through the @see process_and_get_signal function then this doesn't return a value close to 0 (indicating
+     * that a new cycle ocurred), but will instead clamp at 1.
+     *
+     * The benefit of this is that you can use this function without having to check first if a new cycle occurred and
+     * there will be no suprises in terms of what you expected.
+     *
+     * @return A double in the range [0,1] representing the progress through the current cycle.
+     *
+     * @note This "clamping" behavior prevents the progress from appearing to go backward if
+     * the the call to process_and_get_signal delayed. If you do not need this behavior, consider using
+     * @see get_cycle_progress() instead.
+     */
+    double get_cycle_progress_clamped() const {
+        auto now = std::chrono::steady_clock::now();
+        double elapsed_seconds = std::chrono::duration<double>(now - start_time).count();
+        int expected_signal_count = static_cast<int>(elapsed_seconds / period_duration.count());
+
+        if (expected_signal_count > signal_count) {
+            // We are behind, so we "max out" progress
+            return 1.0;
+        }
+
+        // Otherwise, compute progress normally
         double cycle_position = std::fmod(elapsed_seconds, period_duration.count());
         return std::clamp(cycle_position / period_duration.count(), 0.0, 1.0);
     }
