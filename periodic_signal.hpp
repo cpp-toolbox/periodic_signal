@@ -41,6 +41,22 @@ class PeriodicSignal {
           last_delta_time(0.0), mode(mode) {}
 
     /**
+     * @brief Resets the periodic signal to its initial state.
+     *
+     * @details This function restarts the timing of the signal, setting the start time
+     *          to the current time and resetting the signal count and last signal time.
+     *          After calling this, the signal behaves as if it has just been created.
+     *
+     * @note This does not change the signal rate or operation mode.
+     */
+    void restart() {
+        start_time = std::chrono::steady_clock::now();
+        signal_count = 0;
+        last_signal_time = start_time;
+        last_delta_time = 0.0;
+    }
+
+    /**
      * @brief Returns true if one or more signals should have occurred since the last call.
      *        If we have fallen behind, it "catches up" to the latest expected signal.
      * @note this is the function that should be called when you want to do something with the signal
