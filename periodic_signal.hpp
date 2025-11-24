@@ -41,6 +41,8 @@ class PeriodicSignal {
           start_time(std::chrono::steady_clock::now()), signal_count(0), last_signal_time(start_time),
           last_delta_time(0.0), mode(mode) {}
 
+    double cycle_progress_at_last_process_and_get_signal_call = 0;
+
     /**
      * @brief Resets the periodic signal to its initial state.
      *
@@ -69,6 +71,8 @@ class PeriodicSignal {
         double elapsed_seconds = std::chrono::duration<double>(now - start_time).count();
         // this is the floor function here.
         int expected_signal_count = static_cast<int>(elapsed_seconds / period_duration.count());
+
+        cycle_progress_at_last_process_and_get_signal_call = get_cycle_progress_at(now);
 
         // If we've reached or passed at least one new signal since last time
         if (expected_signal_count > signal_count) {
@@ -119,6 +123,24 @@ class PeriodicSignal {
     double get_cycle_progress() const {
         auto now = std::chrono::steady_clock::now();
         double elapsed_seconds = std::chrono::duration<double>(now - start_time).count();
+        double cycle_position = std::fmod(elapsed_seconds, period_duration.count());
+        return std::clamp(cycle_position / period_duration.count(), 0.0, 1.0);
+    }
+
+    /**
+     * @brief Returns normalized progress [0,1] through the cycle at a given time point.
+     *
+     * @details This function behaves identically to @see get_cycle_progress(), but instead
+     *          of sampling the current clock, it computes the progress at the supplied
+     *          time point. This is useful when you want deterministic sampling or when
+     *          the caller already has a timestamp.
+     *
+     * @param time_point The time at which to compute cycle progress.
+     *
+     * @return A double in the range [0,1] representing progress through the cycle.
+     */
+    double get_cycle_progress_at(std::chrono::steady_clock::time_point time_point) const {
+        double elapsed_seconds = std::chrono::duration<double>(time_point - start_time).count();
         double cycle_position = std::fmod(elapsed_seconds, period_duration.count());
         return std::clamp(cycle_position / period_duration.count(), 0.0, 1.0);
     }
