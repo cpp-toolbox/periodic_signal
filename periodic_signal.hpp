@@ -18,9 +18,9 @@
  * periodic signal was checked and was ready to emit the signal
  *
  */
-enum class OperationMode {
-    PERFECT_DELTAS,
-    MEASURED_DELTAS,
+enum class DeltaMode {
+    perfect,
+    measured,
 };
 
 /**
@@ -36,10 +36,10 @@ enum class OperationMode {
  */
 class PeriodicSignal {
   public:
-    explicit PeriodicSignal(int rate_limit_hz, OperationMode mode = OperationMode::MEASURED_DELTAS)
+    explicit PeriodicSignal(int rate_limit_hz, DeltaMode mode = DeltaMode::measured)
         : period_duration(std::chrono::duration<double>(1.0 / rate_limit_hz)),
           start_time(std::chrono::steady_clock::now()), signal_count(0), last_signal_time(start_time),
-          last_delta_time(0.0), mode(mode) {}
+          last_delta_time(0.0), delta_mode(mode) {}
 
     double cycle_progress_at_last_process_and_get_signal_call = 0;
 
@@ -93,7 +93,7 @@ class PeriodicSignal {
      *
      */
     double get_last_delta_time() const {
-        if (mode == OperationMode::PERFECT_DELTAS) {
+        if (delta_mode == DeltaMode::perfect) {
             return period_duration.count();
         }
         return last_delta_time;
@@ -179,7 +179,7 @@ class PeriodicSignal {
     }
 
   private:
-    OperationMode mode;
+    DeltaMode delta_mode;
     std::chrono::duration<double> period_duration;
     std::chrono::steady_clock::time_point start_time;
     std::chrono::steady_clock::time_point last_signal_time;
