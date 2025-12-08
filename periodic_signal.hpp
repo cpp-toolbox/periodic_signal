@@ -18,9 +18,9 @@
  * periodic signal was checked and was ready to emit the signal
  *
  */
-enum class OperationMode {
-    PERFECT_DELTAS,
-    MEASURED_DELTAS,
+enum class DeltaMode {
+    perfect,
+    measured,
 };
 
 /**
@@ -34,11 +34,35 @@ enum class OperationMode {
  */
 
 class PeriodicSignal {
+
   public:
-    explicit PeriodicSignal(int rate_limit_hz, OperationMode mode = OperationMode::MEASURED_DELTAS)
+    /**
+     * @brief Specifies how time is perceived by the PeriodicSignal.
+     *
+     * @details
+     * This enum controls the "time model" used for computing signal deltas and
+     * cycle progress:
+     *
+     * - realtime: Uses the actual measured time since the last signal. Each call
+     *   to PeriodicSignal functions observes the current real clock time.
+     *
+     * - tick_latched: Time is latched per tick. All calls within the same tick
+     *   see the same timestamp and delta time, ensuring deterministic behavior
+     *   across subsystems. Useful for simulations, client prediction, or server
+     *   reconciliation.
+     *
+     * @warn tick_latched behavior is not yet implemented
+     */
+    enum class TimeModel {
+        realtime,
+        tick_latched,
+    };
+
+    explicit PeriodicSignal(int rate_limit_hz, DeltaMode delta_mode = DeltaMode::measured,
+                            TimeModel time_model = TimeModel::realtime)
         : period_duration(std::chrono::duration<double>(1.0 / rate_limit_hz)),
           start_time(std::chrono::steady_clock::now()), signal_count(0), last_signal_time(start_time),
-          last_delta_time(0.0), mode(mode) {}
+          last_delta_time(0.0), delta_mode(delta_mode) {}
 
     /**
      * @brief Returns true if one or more signals should have occurred since the last call.
@@ -71,7 +95,7 @@ class PeriodicSignal {
      *
      */
     double get_last_delta_time() const {
-        if (mode == OperationMode::PERFECT_DELTAS) {
+        if (delta_mode == DeltaMode::perfect) {
             return period_duration.count();
         }
         return last_delta_time;
@@ -98,7 +122,8 @@ class PeriodicSignal {
     }
 
   private:
-    OperationMode mode;
+    DeltaMode delta_mode;
+    TimeModel time_model;
     std::chrono::duration<double> period_duration;
     std::chrono::steady_clock::time_point start_time;
     std::chrono::steady_clock::time_point last_signal_time;
